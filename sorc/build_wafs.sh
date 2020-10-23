@@ -20,6 +20,8 @@ elif [ $mac = v -o $mac = m  ] ; then            # For Dell
 elif [ $mac = t -o $mac = e -o $mac = g ] ; then # For WCOSS
  machine=wcoss
  . /usrx/local/Modules/default/init/bash
+elif [ $mac2 = s4 ] ; then
+ machine=s4
 elif [ $mac = l -o $mac = s ] ; then             #    wcoss_c (i.e. luna and surge)
  export machine=cray-intel
 elif [ $mac2 = hf ] ; then                        # For Hera
@@ -51,6 +53,16 @@ module list
 
  export FFLAGScnv="-O3 -g -I ${G2_INC4}"
  export FFLAGSmkwfs="-O3 -g -r8 -i8"
+
+ if [ $machine = s4 ]; then
+    export FFLAGSawc="-march=ivybridge $FFLAGSawc"
+    export FFLAGSblnd="-march=ivybridge $FFLAGSblnd"
+    export FFLAGST="-march=ivybridge $FFLAGST"
+    export FFLAGSgcip="-march=ivybridge $FFLAGSgcip"
+    export FFLAGScnv="-march=ivybridge $FFLAGScnv"
+    export FFLAGSmkwfs="-march=ivybridge $FFLAGSmkwfs"
+ fi
+
 
 if [ ! -d "../exec" ] ; then
   mkdir -p ../exec
