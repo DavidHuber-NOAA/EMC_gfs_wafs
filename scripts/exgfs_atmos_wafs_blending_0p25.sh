@@ -2,7 +2,7 @@
 ################################################################################
 ####  UNIX Script Documentation Block
 #                      .                                             .
-# Script name:         exgfs_wafs_blending_0p25.sh (copied from exgfs_wafs_blending.sh)
+# Script name:         exgfs_atmos_wafs_blending_0p25.sh (copied from exgfs_atmos_wafs_blending.sh)
 # Script description:  This scripts looks for US and UK WAFS Grib2 products at 1/4 deg,
 # wait for specified period of time, and then run $USHgfs/wafs_blending_0p25.sh
 # if both WAFS data are available.  Otherwise, the job aborts with error massage
@@ -56,12 +56,7 @@ do
 # look for UK WAFS data.
 ##########################
 
-     # Do not wait for UK data if US data is available
-     if [ $SEND_UK_WAFS = 'YES' ] ; then
-	 SLEEP_LOOP_MAX_UK=$SLEEP_LOOP_MAX
-     else
-	 SLEEP_LOOP_MAX_UK=1
-     fi
+     SLEEP_LOOP_MAX_UK=$SLEEP_LOOP_MAX
      
      export ic=1
      while [ $ic -le $SLEEP_LOOP_MAX_UK ]
@@ -71,6 +66,7 @@ do
        if [ $ukfiles -eq 3 ] ; then
            break
        fi
+
        if [ $ic -eq $SLEEP_LOOP_MAX_UK ] ; then
           msg="UK WAFS GRIB2 file " $COMINuk/EGRR_WAFS_0p25_*_unblended_${PDY}_${cyc}z_t${ffhr}.grib2 " not found"
           postmsg "$jlogfile" "$msg"
@@ -116,6 +112,8 @@ do
 
 	 # run blending code
 	 export pgm=wafs_blending_0p25
+	 . prep_step
+
 	 startmsg
 	 $EXECgfs/$pgm gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2 \
                               EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2 \
@@ -134,13 +132,22 @@ do
 ##########################
 
      if [ $SEND_US_WAFS = "YES" ] ; then
+
+       # Temporary!!! Remove the 'if' condition after 2023 implementation!!!
+       # Before 2023 implementation, don't send alerts for products of hourly or after 36 forecast hour
+       # Reason? UK won't have those data available. So silently skip doing anything about it.
+       if [ $ffhr -eq 06 -o $ffhr -eq 09 -o $ffhr -eq 12 -o \
+	    $ffhr -eq 15 -o $ffhr -eq 18 -o $ffhr -eq 21 -o \
+            $ffhr -eq 24 -o $ffhr -eq 27 -o $ffhr -eq 30 -o \
+	    $ffhr -eq 33 -o $ffhr -eq 36 ] ; then
+
 	 ##############################################################################################
 	 #
 	 #  checking any US WAFS product was sent due to No UK WAFS GRIB2 file or WAFS blending program
 	 #  (Alert once for all forecast hours)
 	 #
 	 if [ $SEND_AWC_US_ALERT = "NO" ] ; then
-	     msg="No UK WAFS GRIB2 0P25 file or WAFS blending program. Send alert message to AWC ......"
+	     msg="WARNING! No UK WAFS GRIB2 0P25 file for WAFS blending. Send alert message to AWC ......"
 	     postmsg "$jlogfile" "$msg"
 	     make_NTC_file.pl NOXX10 KKCI $PDY$cyc NONE $FIXgfs/wafs_0p25_admin_msg $PCOM/wifs_0p25_admin_msg
 	     make_NTC_file.pl NOXX10 KWBC $PDY$cyc NONE $FIXgfs/wafs_0p25_admin_msg $PCOM/iscs_0p25_admin_msg
@@ -148,6 +155,21 @@ do
 		 $DBNROOT/bin/dbn_alert NTC_LOW WAFS  $job $PCOM/wifs_0p25_admin_msg
 		 $DBNROOT/bin/dbn_alert NTC_LOW WAFS  $job $PCOM/iscs_0p25_admin_msg
 	     fi
+
+             if [ $envir != prod ]; then
+		 export maillist='nco.spa@noaa.gov'
+             fi
+             export maillist=${maillist:-'nco.spa@noaa.gov,ncep.sos@noaa.gov'}
+             export subject="WARNING! No UK WAFS GRIB2 0P25 file for WAFS blending, $PDY t${cyc}z $job"
+             echo "*************************************************************" > mailmsg
+             echo "*** WARNING! No UK WAFS GRIB2 0P25 file for WAFS blending ***" >> mailmsg
+             echo "*************************************************************" >> mailmsg
+             echo >> mailmsg
+             echo "Send alert message to AWC ...... " >> mailmsg
+             echo >> mailmsg
+             cat mailmsg > $COMOUT/${RUN}.t${cyc}z.wafs_blend_0p25_usonly.emailbody
+             cat $COMOUT/${RUN}.t${cyc}z.wafs_blend_0p25_usonly.emailbody | mail.py -s "$subject" $maillist -v
+
 	     export SEND_AWC_US_ALERT=YES
 	 fi
 	 ##############################################################################################
@@ -158,15 +180,17 @@ do
 	 echo "and $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx "
 
 	 if [ $SENDDBN = "YES" ] ; then
-	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFSA_GB2 $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
-	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFSA_GB2_WIDX $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx
+	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_0P25_UBL_GB2 $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
+	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_0P25_UBL_GB2_WIDX $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx
 	 fi
 
-	 if [ $SENDDBN_NTC = "YES" ] ; then
-	     $DBNROOT/bin/dbn_alert NTC_LOW $NET $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
-	 fi
-	 export SEND_US_WAFS=NO
+#	 if [ $SENDDBN_NTC = "YES" ] ; then
+#	     $DBNROOT/bin/dbn_alert NTC_LOW $NET $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
+#	 fi
 
+       fi
+
+       export SEND_US_WAFS=NO
 
      elif [ $SEND_UK_WAFS = "YES" ] ; then
 	 ##############################################################################################
@@ -175,7 +199,7 @@ do
 	 #  (Alert once for all forecast hours)
 	 #
 	 if [ $SEND_AWC_UK_ALERT = "NO" ] ; then
-	     msg="No US WAFS GRIB2 0P25 file. Send alert message to AWC ......"
+	     msg="WARNING: No US WAFS GRIB2 0P25 file for WAFS blending. Send alert message to AWC ......"
 	     postmsg "$jlogfile" "$msg"
 	     make_NTC_file.pl NOXX10 KKCI $PDY$cyc NONE $FIXgfs/wafs_0p25_admin_msg $PCOM/wifs_0p25_admin_msg
 	     make_NTC_file.pl NOXX10 KWBC $PDY$cyc NONE $FIXgfs/wafs_0p25_admin_msg $PCOM/iscs_0p25_admin_msg
@@ -183,6 +207,21 @@ do
 		 $DBNROOT/bin/dbn_alert NTC_LOW WAFS  $job $PCOM/wifs_0p25_admin_msg
 		 $DBNROOT/bin/dbn_alert NTC_LOW WAFS  $job $PCOM/iscs_0p25_admin_msg
 	     fi
+
+             if [ $envir != prod ]; then
+                 export maillist='nco.spa@noaa.gov'
+             fi
+             export maillist=${maillist:-'nco.spa@noaa.gov,ncep.sos@noaa.gov'}
+             export subject="WARNING! No US WAFS GRIB2 0P25 file for WAFS blending, $PDY t${cyc}z $job"
+             echo "*************************************************************" > mailmsg
+             echo "*** WARNING! No US WAFS GRIB2 0P25 file for WAFS blending ***" >> mailmsg
+             echo "*************************************************************" >> mailmsg
+             echo >> mailmsg
+             echo "Send alert message to AWC ...... " >> mailmsg
+             echo >> mailmsg
+             cat mailmsg > $COMOUT/${RUN}.t${cyc}z.wafs_blend_0p25_ukonly.emailbody
+             cat $COMOUT/${RUN}.t${cyc}z.wafs_blend_0p25_ukonly.emailbody | mail.py -s "$subject" $maillist -v
+
 	     export SEND_AWC_UK_ALERT=YES
 	 fi
 	 ##############################################################################################
@@ -192,12 +231,12 @@ do
 	 echo "altering the unblended UK WAFS products - EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2"
 
 	 if [ $SENDDBN = "YES" ] ; then
-	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFSA_GB2 $job EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2
+	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_UKMET_0P25_UBL_GB2 $job EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2
 	 fi
 
-	 if [ $SENDDBN_NTC = "YES" ] ; then
-	     $DBNROOT/bin/dbn_alert NTC_LOW $NET $job EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2
-	 fi
+#	 if [ $SENDDBN_NTC = "YES" ] ; then
+#	     $DBNROOT/bin/dbn_alert NTC_LOW $NET $job EGRR_WAFS_0p25_unblended_${PDY}_${cyc}z_t${ffhr}.grib2
+#	 fi
 	 export SEND_UK_WAFS=NO
 
 
@@ -236,7 +275,7 @@ do
 	 fi
 
 	 if [ $SENDDBN = "YES" ] ; then
-	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFSA_BL_GB2 $job $COMOUT/WAFS_0p25_blended_${PDY}${cyc}f${ffhr}.grib2
+	     $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_0P25_BL_GB2 $job $COMOUT/WAFS_0p25_blended_${PDY}${cyc}f${ffhr}.grib2
 	 fi 
      fi
 
@@ -260,6 +299,8 @@ do
 	     FHINC=06
 	 fi
      fi
+     # temporarily set FHINC=03. Will remove this line for 2023 ICAO standard.
+     FHINC=03
      ffhr=`expr $ffhr + $FHINC`
      if test $ffhr -lt 10
      then

@@ -1,6 +1,6 @@
 #!/bin/sh
 ######################################################################
-#  UTILITY SCRIPT NAME :  exgfs_wafs_grib2.sh
+#  UTILITY SCRIPT NAME :  exgfs_atmos_wafs_grib2.sh
 #         DATE WRITTEN :  07/15/2009
 #
 #  Abstract:  This utility script produces the WAFS GRIB2. The output 
@@ -19,7 +19,7 @@
 #                for blending at 0.25 degree
 #####################################################################
 echo "-----------------------------------------------------"
-echo "JGFS_WAFS_GRIB2 at 00Z/06Z/12Z/18Z GFS postprocessing"
+echo "JGFS_ATMOS_WAFS_GRIB2 at 00Z/06Z/12Z/18Z GFS postprocessing"
 echo "-----------------------------------------------------"
 echo "History: AUGUST  2009 - First implementation of this new script."
 echo " "
@@ -78,8 +78,6 @@ do
   echo " "
   set -x
 
-  export pgm=wafs_awc_wafavn
-
   # ===================  process master file grib2  ===================
   # 1) new WAFS fields
   cp $PARMgfs/wafs_awc_wafavn.grb2.cfg waf.cfg
@@ -109,7 +107,7 @@ do
     $WGRIB2 $wafs2 | egrep "$criteria" |  $WGRIB2 -i $wafs2 -grib wafs.fields
     cat master.fields wafs.fields > masterfilef${fcsthrs}.new
     rm master.fields wafs.fields
-    $WGRIB2  masterfilef${fcsthrs}.new -new_grid_interpolation bilinear -new_grid latlon 0:1440:0.25 90:721:-0.25 masterfilef${fcsthrs}
+    $WGRIB2  masterfilef${fcsthrs}.new -set master_table 6 -new_grid_interpolation bilinear -new_grid latlon 0:1440:0.25 90:721:-0.25 masterfilef${fcsthrs}
   else
 
     ################# START #######################
@@ -150,8 +148,11 @@ do
     done
   fi
 
+  export pgm=wafs_awc_wafavn
+  . prep_step
+
   startmsg
-  $MPIRUN $EXECgfs/$pgm -c waf.cfg -i masterfilef${fcsthrs} -o tmpfile_icaof${fcsthrs} icng tcld cat cb  >> $pgmout  2> errfile
+  $MPIRUN $EXECgfs/$pgm -c waf.cfg -i masterfilef${fcsthrs} -o tmpfile_icaof${fcsthrs} icng cat cb  >> $pgmout  2> errfile
   export err=$?; err_chk
 
 # To avoid interpolation of missing value (-0.1 or -1.0, etc), use neighbor interpolation instead of bilinear interpolation
@@ -160,6 +161,8 @@ do
                       -new_grid latlon 0:288:1.25 90:145:-1.25 tmpfile_icao_grb45f${fcsthrs}
 # after grid conversion by wgrib2, even with neighbor interpolation, values may still be mislead by noises, epescially 
 # the ref_value is not zero according to DST template 5.XX. Solution: rewrite and round those special meaning values
+  export pgm=wafs_setmissing
+  . prep_step
   $MPIRUN $EXECgfs/wafs_setmissing tmpfile_icao_grb45f${fcsthrs} tmpfile_icao_grb45f${fcsthrs}.setmissing
   mv tmpfile_icao_grb45f${fcsthrs}.setmissing tmpfile_icao_grb45f${fcsthrs}
 
@@ -258,9 +261,9 @@ done
 ################################################################################
 # GOOD RUN
 set +x
-echo "**************JOB EXGFS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
-echo "**************JOB EXGFS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
-echo "**************JOB EXGFS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2.SH COMPLETED NORMALLY ON THE IBM"
 set -x
 ################################################################################
 

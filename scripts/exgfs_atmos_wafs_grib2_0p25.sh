@@ -1,6 +1,6 @@
 #!/bin/sh
 ######################################################################
-#  UTILITY SCRIPT NAME :  exgfs_wafs_grib2_0p25.sh
+#  UTILITY SCRIPT NAME :  exgfs_atmos_wafs_grib2_0p25.sh
 #         DATE WRITTEN :  03/20/2020
 #
 #  Abstract:  This utility script produces the WAFS GRIB2 at 0.25 degree.
@@ -14,7 +14,7 @@
 # History:  
 #####################################################################
 echo "-----------------------------------------------------"
-echo "JGFS_WAFS_GRIB2_0P25 at 00Z/06Z/12Z/18Z GFS postprocessing"
+echo "JGFS_ATMOS_WAFS_GRIB2_0P25 at 00Z/06Z/12Z/18Z GFS postprocessing"
 echo "-----------------------------------------------------"
 echo "History: MARCH  2020 - First implementation of this new script."
 echo " "
@@ -72,8 +72,6 @@ do
   echo " "
   set -x
 
-  export pgm=wafs_grib2_0p25
-
   opt1=' -set_grib_type same -new_grid_winds earth '
   opt21=' -new_grid_interpolation bilinear  -if '
   opt22="(:ICESEV|parm=37):"
@@ -98,6 +96,9 @@ do
   ###### Step 4: Change to grib2 template 5.40 and relabel pressure levels to exact numbers  ######
   # Relabelling should be removed when UPP WAFS output on the exact pressure levels
   # (after WAFS products at 1.25 deg retire)
+  export pgm=wafs_grib2_0p25
+  . prep_step
+
   startmsg
   $MPIRUN $EXECgfs/$pgm tmp_wafs_grb2.0p25 tmp_0p25_exact.grb2 >> $pgmout 2> errfile
   export err=$?; err_chk
@@ -125,7 +126,7 @@ do
 
   ###### Step 5: Filter limited levels according to ICAO standard ######
   $WGRIB2 tmp_0p25_exact.grb2 | grep -F -f $FIXgfs/wafs_gfsmaster.grb2_0p25.list \
-          | $WGRIB2 -i tmp_0p25_exact.grb2 -grib gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
+          | $WGRIB2 -i tmp_0p25_exact.grb2 -set master_table 25 -grib gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
   $WGRIB2 -s gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2 > gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx
 
   ###### Step 6 TOCGIB2 ######
@@ -145,8 +146,8 @@ do
    # Post Files to COM
    ##############################
 
-     mv gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2 $COMOUT/gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2
-     mv gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2.idx $COMOUT/gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2.idx
+     mv gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2 $COMOUT/gfs.t${cyc}z.wafs_0p25.f${ffhr000}.grib2
+     mv gfs.t${cyc}z.wafs_0p25.f${ffhr}.grib2.idx $COMOUT/gfs.t${cyc}z.wafs_0p25.f${ffhr000}.grib2.idx
 
      mv gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2 $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
      mv gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2.idx
@@ -161,10 +162,15 @@ do
   # Distribute Data
   ######################
 
-  # Unblended US WAFS data is sent to NOMADS, not to WIFS
-#  if [ $SENDDBN = "YES" ] ; then
-#    $DBNROOT/bin/dbn_alert MODEL GFS_WAFSA_GB2_0P25 $job $PCOM/gfs.t${cyc}z.wafs_0p25_unblended_wifs.f${ffhr}.grib2
-#  fi
+  # Hazard WAFS data (ICESEV GTG from 100mb to 1000mb) is sent to NOMADS for US stakeholders
+  if [ $SENDDBN = "YES" ] ; then
+    $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_0P25_GB2 $job $COMOUT/gfs.t${cyc}z.wafs_0p25.f${ffhr000}.grib2
+  fi
+
+  # Unblended US WAFS data is sent to NOMADS, not to WIFS, for UK to blend
+  if [ $SENDDBN = "YES" ] ; then
+    $DBNROOT/bin/dbn_alert MODEL GFS_WAFS_0P25_UBL_GB2 $job $COMOUT/gfs.t${cyc}z.wafs_0p25_unblended.f${ffhr}.grib2
+  fi
 
   if [ $FHOUT_GFS -eq 3 ] ; then
       FHINC=03
@@ -180,6 +186,8 @@ do
           FHINC=06
       fi
   fi
+  # temporarily set FHINC=03. Will remove this line for 2023 ICAO standard.
+  FHINC=03
   ffhr=`expr $ffhr + $FHINC`
   if test $ffhr -lt 10
   then
@@ -191,9 +199,9 @@ done
 ################################################################################
 # GOOD RUN
 set +x
-echo "**************JOB EXGFS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
-echo "**************JOB EXGFS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
-echo "**************JOB EXGFS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
+echo "**************JOB EXGFS_ATMOS_WAFS_GRIB2_0P25.SH COMPLETED NORMALLY ON THE IBM"
 set -x
 ################################################################################
 

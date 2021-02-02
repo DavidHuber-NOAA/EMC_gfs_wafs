@@ -1,9 +1,9 @@
 #!/bin/sh
 
-#BSUB -J gfs_wafs_blending
+#BSUB -J gfs_atmos_wafs_blending
 #BSUB -cwd /gpfs/dell3/ptmp/Hui-Ya.Chuang
-#BSUB -oo /gpfs/dell3/ptmp/Hui-Ya.Chuang/gfs_wafs_blending.o%J
-#BSUB -eo /gpfs/dell3/ptmp/Hui-Ya.Chuang/gfs_wafs_blending.o%J
+#BSUB -oo /gpfs/dell3/ptmp/Hui-Ya.Chuang/gfs_atmos_wafs_blending.o%J
+#BSUB -eo /gpfs/dell3/ptmp/Hui-Ya.Chuang/gfs_atmos_wafs_blending.o%J
 ##BSUB -L /bin/sh
 #BSUB -q debug
 #BSUB -W 00:30
@@ -35,6 +35,8 @@ module load prod_util/1.1.4
 module load grib_util/1.1.0
 module load prod_envir/1.1.0
 
+module load util_shared/1.1.2
+
 module list
 
 ############################################
@@ -45,8 +47,8 @@ export envir=prod
 
 export cyc=${cyc:-00}
 
-# gfs_wafs_blending for blending icing turbulence of US and UK
-export job=gfs_wafs_blending_${cyc}
+# gfs_atmos_wafs_blending for blending icing turbulence of US and UK
+export job=gfs_atmos_wafs_blending_${cyc}
 
 ############################################
 # set NET RUN
@@ -81,8 +83,8 @@ USER=`whoami`
 # KEEPDATA=NO--Remove temporary working
 ############################################
 export SENDCOM=YES
-export SENDDBN=NO
-export SENDDBN_NTC=NO
+export SENDDBN=YES
+export SENDDBN_NTC=YES
 export KEEPDATA=YES
  
 ############################################
@@ -91,6 +93,8 @@ export KEEPDATA=YES
 echo $COMROOT
 export NWROOT=/gpfs/dell2/emc/verification/save/Hui-Ya.Chuang
 export DATAROOT=/gpfs/dell3/ptmp/${USER}
+
+export DBNROOT=${UTILROOT}/fakedbn
 
 # for UK data
 #if [[ `hostname` =~ "^l" ]] ; then ! LUNA/TIDE
@@ -128,7 +132,7 @@ export SHOUR=06
 export EHOUR=36
 export FHINC=03
 
-sh $HOMEgfs/jobs/JGFS_WAFS_BLENDING
+sh $HOMEgfs/jobs/JGFS_ATMOS_WAFS_BLENDING
 
 exit
 
